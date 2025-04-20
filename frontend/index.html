@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Verificador de Noticias</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>🧠 Verificador Inteligente de Noticias</h1>
+  <div class="container">
+    <input type="text" id="newsInput" placeholder="Pega el título o la URL de la noticia aquí">
+
+    <div class="buttons">
+      <button onclick="verificarNoticia()">Verificar</button>
+    </div>
+
+    <textarea id="mensajeProfesional" rows="2" readonly placeholder="Aquí aparecerá el estado de la verificación..."></textarea>
+
+    <textarea id="resumenNoticia" rows="4" readonly placeholder="Aquí aparecerá el resumen de la noticia..."></textarea>
+
+    <input type="url" id="webhookInput" placeholder="Pega aquí tu Webhook de Make">
+    <button id="botonPublicar" onclick="publicarNoticia()" disabled>Publicar</button>
+
+    <div class="result" id="resultado"></div>
+  </div>
+
+  <script>
+    // ✅ Cambiá esta línea si tu URL de Render es distinta
+    const BACKEND_URL = "https://verificador-noticias-backend.onrender.com/verificar";
+
+    let estadoActual = "";
+    let noticiaActual = "";
+
+    function verificarNoticia() {
+      const input = document.getElementById('newsInput').value.trim();
+      const resultado = document.getElementById('resultado');
+      const mensaje = document.getElementById('mensajeProfesional');
+      const resumen = document.getElementById('resumenNoticia');
+      const botonPublicar = document.getElementById('botonPublicar');
+
+      if (input === "") {
+        resultado.textContent = "⚠️ Por favor, ingresa el título o la URL de la noticia.";
+        resultado.style.color = "orange";
+        mensaje.value = "";
+        resumen.value = "";
+        botonPublicar.disabled = true;
+        estadoActual = "";
+        return;
+      }
+
+      noticiaActual = input;
+
+      fetch(BACKEND_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noticia: noticiaActual })
+      })
+      .then(res => res.json())
+      .then(data => {
+        estadoActual = data.estado;
+        resultado.textContent = estadoActual;
+        resultado.style.color = data.estado.includes("Verificada") ? "green" :
+                                 data.estado.includes("Dudosa") ? "orange" : "red";
+        mensaje.value = data.mensaje;
+        resumen.value = data.resumen;
+        botonPublicar.disabled = !data.estado.includes("Verificada");
+      })
+      .catch(error => {
+        resultado.textContent = "❌ Error al verificar.";
+        resultado.style.color = "red";
+        console.error(error);
+      });
+    }
+
+    function publicarNoticia() {
+      const resultado = document.getElementById('resultado');
+      const webhookUrl = document.getElementById('webhookInput').value.trim();
+      const mensaje = document.getElementById('mensajeProfesional').value;
+      const resumen = document.getElementById('resumenNoticia').value;
+
+      if (estadoActual !== "🟢 Verificada") {
+        resultado.textContent = "❌ Solo se pueden publicar noticias verificadas.";
+        resultado.style.color = "red";
+        return;
+      }
+
+      if (webhookUrl === "") {
+        resultado.textContent = "⚠️ Pegá una URL de webhook para publicar.";
+        resultado.style.color = "orange";
+        return;
+      }
+
+      fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          noticia: noticiaActual,
+          estado: "verificada",
+          mensaje,
+          resumen,
+          timestamp: new Date().toISOString()
+        })
+      })
+      .then(res => res.text())
+      .then(() => {
+        resultado.textContent = "✅ Noticia publicada con éxito.";
+        resultado.style.color = "green";
+      })
+      .catch(error => {
+        resultado.textContent = "❌ Error al enviar el webhook.";
+        resultado.style.color = "red";
+        console.error(error);
+      });
+    }
+  </script>
+</body>
+</html>
