@@ -25,7 +25,7 @@
     <div class="result" id="resultado"></div>
   </div>
 
-  <!-- ✅ MOVIDO AL FINAL PARA QUE FUNCIONE EL BOTÓN -->
+  <!-- ✅ Script actualizado -->
   <script>
     const BACKEND_URL = "https://verificador-noticias-backend.onrender.com/verificar";
 
@@ -64,7 +64,9 @@
                                  data.estado.includes("Dudosa") ? "orange" : "red";
         mensaje.value = data.mensaje;
         resumen.value = data.resumen;
-        botonPublicar.disabled = !data.estado.includes("Verificada");
+
+        // ✅ NUEVO: solo habilita si verificada es true
+        botonPublicar.disabled = !data.verificada;
       })
       .catch(error => {
         resultado.textContent = "❌ Error al verificar.";
@@ -116,4 +118,3 @@
   </script>
 </body>
 </html>
-
