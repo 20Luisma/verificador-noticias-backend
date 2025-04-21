@@ -6,10 +6,10 @@ import requests
 
 app = FastAPI()
 
-# Permitir acceso desde el frontend (Netlify)
+# Middleware CORS para frontend (Netlify)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Podés poner solo Netlify si querés limitar
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -18,7 +18,6 @@ app.add_middleware(
 class Noticia(BaseModel):
     noticia: str
 
-# Tu clave de API de Google Fact Check
 API_KEY = "AIzaSyBNbFL250S8h7fPqsqKrBW1ngEeWayekn8"
 FACTCHECK_API_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
 
@@ -26,7 +25,7 @@ def consultar_factcheck_api(texto):
     params = {
         "query": texto,
         "key": API_KEY,
-        "languageCode": "es"  # podés cambiar a "en" para inglés
+        "languageCode": "es"
     }
 
     try:
@@ -35,11 +34,11 @@ def consultar_factcheck_api(texto):
             data = response.json()
             if "claims" in data and data["claims"]:
                 claim = data["claims"][0]
-                texto_claim = claim["text"]
-                veredicto = claim["claimReview"][0]["textualRating"]
-                fuente = claim["claimReview"][0]["publisher"]["name"]
+                texto_claim = claim.get("text", "")
+                review = claim.get("claimReview", [])[0]
+                veredicto = review.get("textualRating", "")
+                fuente = review.get("publisher", {}).get("name", "fuente desconocida")
 
-                # Interpretamos el veredicto
                 if "true" in veredicto.lower():
                     estado = "🟢 Verificada"
                 elif "false" in veredicto.lower():
@@ -48,25 +47,40 @@ def consultar_factcheck_api(texto):
                     estado = "🟠 Dudosa"
 
                 mensaje = f"La noticia fue revisada por {fuente} y está marcada como: {veredicto}."
-                resumen = f"Texto original verificado: {texto_claim}"
-                return estado, mensaje, resumen
+                resumen = f"Texto verificado: {texto_claim}"
+
+                return estado, mensaje, resumen, True  # ← True = se encontró una verificación real
             else:
-                return "🟠 Dudosa", "No se encontraron verificaciones sobre esta noticia.", "Sin información verificada disponible."
+                return (
+                    "🟠 Dudosa",
+                    "No hay resultados verificados para esta noticia.",
+                    "Ninguna fuente confiable ha verificado esta información.",
+                    False
+                )
         else:
-            return "🟠 Dudosa", f"Error al consultar la API: {response.status_code}", ""
+            return (
+                "🟠 Dudosa",
+                f"Error consultando la API de Google: {response.status_code}",
+                "",
+                False
+            )
     except Exception as e:
-        return "🟠 Dudosa", f"Excepción al consultar la API: {str(e)}", ""
+        return (
+            "🟠 Dudosa",
+            f"Error interno al contactar la API: {str(e)}",
+            "",
+            False
+        )
 
 @app.post("/verificar")
 def verificar_noticia(n: Noticia):
-    estado, mensaje, resumen = consultar_factcheck_api(n.noticia)
+    estado, mensaje, resumen, verificada = consultar_factcheck_api(n.noticia)
 
     return {
         "estado": estado,
         "mensaje": mensaje,
         "resumen": resumen,
+        "verificada": verificada,  # ← ¡Importante para el frontend!
         "timestamp": datetime.utcnow().isoformat(),
         "noticia": n.noticia
     }
-
-
