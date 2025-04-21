@@ -37,7 +37,29 @@ def consultar_factcheck_api(texto):
                 texto_claim = claim.get("text", "")
                 review = claim.get("claimReview", [])[0]
                 veredicto = review.get("textualRating", "")
-                fuente = review.get("publisher", {}).get("name", "fuente desconocida")
+                fuente = review.get("publisher", {}).get("name", "fuente desconocida").lower()
+
+                # Lista de fuentes confiables
+                fuentes_confiables = [
+                    "maldita.es",
+                    "chequeado",
+                    "afp",
+                    "snopes.com",
+                    "ap news",
+                    "el país",
+                    "bbc",
+                    "the washington post",
+                    "politifact"
+                ]
+
+                # Filtrado de fuente no confiable
+                if not any(f in fuente for f in fuentes_confiables):
+                    return (
+                        "🟠 Dudosa",
+                        f"La fuente detectada fue: {fuente}. No está en la lista de medios verificados.",
+                        f"Texto recibido: {texto_claim}",
+                        False
+                    )
 
                 if "true" in veredicto.lower():
                     estado = "🟢 Verificada"
@@ -49,7 +71,7 @@ def consultar_factcheck_api(texto):
                 mensaje = f"La noticia fue revisada por {fuente} y está marcada como: {veredicto}."
                 resumen = f"Texto verificado: {texto_claim}"
 
-                return estado, mensaje, resumen, True  # ← True = se encontró una verificación real
+                return estado, mensaje, resumen, True
             else:
                 return (
                     "🟠 Dudosa",
@@ -80,7 +102,8 @@ def verificar_noticia(n: Noticia):
         "estado": estado,
         "mensaje": mensaje,
         "resumen": resumen,
-        "verificada": verificada,  # ← ¡Importante para el frontend!
+        "verificada": verificada,
         "timestamp": datetime.utcnow().isoformat(),
         "noticia": n.noticia
     }
+
